@@ -23,12 +23,18 @@
             "enableNonRootDocker": "true"
         },
         "ghcr.io/devcontainers/features/node:1": {
-            "version": "lts"
+            "version": "lts",
+            "pnpmVersion": "none"
         },
         "ghcr.io/devcontainers/features/dotnet:2": {
             "version": "10.0",
             "installUsingApt": true
         }
+    },
+    "containerEnv": {
+        "PIP_INDEX_URL": "https://packagefeedproxy.microsoft.io/pypi/simple",
+        "UV_DEFAULT_INDEX": "https://packagefeedproxy.microsoft.io/pypi/simple",
+        "NPM_CONFIG_REGISTRY": "https://packagefeedproxy.microsoft.io/npm/"
     },
     "postCreateCommand": "pip3 install --upgrade pip && pip3 install --user -r requirements.txt && bash .devcontainer/setup-dotnet.sh",
     "customizations": {

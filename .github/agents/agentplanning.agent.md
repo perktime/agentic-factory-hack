@@ -53,7 +53,7 @@ Add this to suppress preview API warnings:
 
 Use these exact names:
 - `AZURE_AI_PROJECT_ENDPOINT` - Azure AI Foundry project endpoint
-- `MODEL_DEPLOYMENT_NAME` - Model deployment name (e.g., "gpt-4o")
+- `MODEL_DEPLOYMENT_NAME` - Model deployment name (e.g., "gpt-5.4-mini")
 - `COSMOS_ENDPOINT` - Cosmos DB endpoint
 - `COSMOS_KEY` - Cosmos DB key
 - `COSMOS_DATABASE_NAME` - Cosmos DB database name
