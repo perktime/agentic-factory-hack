@@ -1,0 +1,14 @@
+name: agentic-factory-hack
+metadata:
+  template: agentic-factory-hack@0.0.1-beta
+resourceGroup: rg-tire-factory-hack-${AZURE_ENV_NAME}
+infra:
+  provider: bicep
+  path: challenge-0/infra
+  module: main
+requiredVersions:
+  azd: ">= 1.20.0"
+workflows:
+  up:
+    steps:
+      - azd: provision

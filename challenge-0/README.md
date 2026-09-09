@@ -200,28 +200,26 @@ In this step, you create the resources that will be used throughout the day.
 <summary>Deploy Azure resources</summary>
 
 ```bash
-# Ensure Microsoft.AlertsManagement resource provider is registered for use in the subscription
-az provider register --namespace Microsoft.AlertsManagement
-
-# Ensure you are located in the challenge-0 directory
-cd challenge-0
-
-# Make resource group name easy to identify. Use your initials or other identifier (e.g., "jd" for John Doe)
+# Run these commands from the repository root. Use your initials or another
+# identifier for the azd environment (for example, "jd" for John Doe).
 export RG_SUFFIX="<initials>"
-
-# Set variables with your initials as suffix
-export RESOURCE_GROUP="rg-tire-factory-hack-${RG_SUFFIX}"
 export LOCATION="swedencentral"
+export AZURE_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 
-# Create resource group
-az group create --name $RESOURCE_GROUP --location $LOCATION
+# Authenticate azd and create its local environment.
+azd auth login
+azd env new "$RG_SUFFIX" \
+  --subscription "$AZURE_SUBSCRIPTION_ID" \
+  --location "$LOCATION"
 
-# Deploy infrastructure
-az deployment group create \
-  --resource-group $RESOURCE_GROUP \
-  --template-file infra/azuredeploy.json \
-  --parameters location=$LOCATION
+# Preview, then provision the infrastructure.
+azd provision --preview
+azd provision
 ```
+
+The resource group is named `rg-tire-factory-hack-${RG_SUFFIX}`. You can rerun
+`azd provision` to apply later infrastructure changes, or use `azd up`, which is
+configured as an infrastructure-only workflow for this repository.
 
 ⏱️Deployment takes approximately 5-10 minutes.
 
@@ -236,37 +234,23 @@ Go to the [Azure Portal](https://portal.azure.com/) and find your resource group
 
 ---
 
-### Task 6: Retrieve keys for environment variables
+### Task 6: Load deployment outputs
 
-After deploying resources, configure environment variables in the `.env` file. Ensure you're logged into **Azure CLI**, then run the `get-keys.sh` script to automatically populate the required values.
-
-> [!IMPORTANT]
-> Wait until all Azure resources are successfully deployed before starting this task.
-> Otherwise, the environment variables may not be extracted correctly.
-> If the environment is pre-created for you, the resource group name will be provided by the hackathon coaches. Set it using `export RESOURCE_GROUP='your predefined resource group name'`
+After provisioning, `azd` stores non-secret resource names and endpoints in its
+local environment. Load them into the current shell with:
 
 ```bash
-# Ensure you are in the challenge-0 directory
-cd challenge-0
-
-# Extract connection keys
-./get-keys.sh --resource-group $RESOURCE_GROUP
-
-# Verify .env file. No entries should be empty
-cat ../.env
-
-# Make environment variables available in the shell
-export $(cat ../.env | xargs)
-
+eval "$(azd env get-values)"
 ```
 
 > [!TIP]
-> Keep your `.env` file handy throughout the hackathon.
-> You need to re-export the environment variables each time you open a new shell or when you resume a stopped codespace.
+> Run this command each time you open a new shell or resume a stopped codespace.
 
-> [!CAUTION]
-> For convenience, we use key-based authentication and public network access to resources in this hackathon. In real-world implementations, you should consider stronger authentication mechanisms and additional network security.
-> Never commit the `.env` file to the repository. This repo already includes `.env` in [.gitignore](../.gitignore), but if you rename the file you may need to add the new name to `.gitignore` as well.
+> [!IMPORTANT]
+> This deployment disables shared keys and public data-plane access. The legacy
+> `get-keys.sh` script is not compatible with it. Workloads must run on the
+> configured virtual network and authenticate with Microsoft Entra ID or managed
+> identity.
 
 ---
 
