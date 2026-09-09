@@ -267,9 +267,27 @@ identity. That identity needs these permissions:
 - **API Management Service Contributor** on the API Management service
 
 ```bash
-# Run data seeding script
-./seed-data.sh
+# Provision the manual Container Apps Job and reload azd outputs.
+azd provision
+eval "$(azd env get-values)"
+
+# Start one seed execution inside the virtual network.
+az containerapp job start \
+  --name "$SEED_JOB_NAME" \
+  --resource-group "$AZURE_RESOURCE_GROUP"
+
+# Inspect execution status and logs.
+az containerapp job execution list \
+  --name "$SEED_JOB_NAME" \
+  --resource-group "$AZURE_RESOURCE_GROUP" \
+  --output table
 ```
+
+The job clones the `main` branch of
+`https://github.com/perktime/agentic-factory-hack.git`. Override the
+`seedRepositoryUrl` and `seedRepositoryRef` Bicep parameters when using another
+fork or branch. The job runs with a system-assigned managed identity inside the
+Container Apps virtual network; no resource keys are stored in its configuration.
 ---
 
 ### Task 8: Assign additional permissions

@@ -16,6 +16,12 @@ param resourceGroupName string = 'rg-tire-factory-hack-${environmentName}'
 ])
 param searchServiceSku string = 'standard'
 
+@description('Git repository cloned by the manual seed job.')
+param seedRepositoryUrl string = 'https://github.com/perktime/agentic-factory-hack.git'
+
+@description('Git branch or tag cloned by the manual seed job.')
+param seedRepositoryRef string = 'main'
+
 resource workshopResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = {
   name: resourceGroupName
   location: location
@@ -27,6 +33,8 @@ module infrastructure './azuredeploy.bicep' = {
   params: {
     location: location
     searchServiceSku: searchServiceSku
+    seedRepositoryUrl: seedRepositoryUrl
+    seedRepositoryRef: seedRepositoryRef
   }
 }
 
@@ -53,3 +61,4 @@ output CONTENT_SAFETY_NAME string = infrastructure.outputs.contentSafetyName
 output CONTENT_SAFETY_ENDPOINT string = infrastructure.outputs.contentSafetyEndpoint
 output APIM_NAME string = infrastructure.outputs.apiManagementName
 output COSMOS_DATABASE_NAME string = 'FactoryOpsDB'
+output SEED_JOB_NAME string = infrastructure.outputs.seedJobName

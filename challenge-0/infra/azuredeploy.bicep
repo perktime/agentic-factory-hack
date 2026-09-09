@@ -14,6 +14,12 @@ param location string = 'swedencentral'
 ])
 param searchServiceSku string = 'standard'
 
+@description('Git repository cloned by the manual seed job.')
+param seedRepositoryUrl string = 'https://github.com/perktime/agentic-factory-hack.git'
+
+@description('Git branch or tag cloned by the manual seed job.')
+param seedRepositoryRef string = 'main'
+
 var prefix = 'msagthack'
 var suffix = uniqueString(resourceGroup().id, deployment().name)
 var virtualNetworkName = '${prefix}-vnet-${suffix}'
@@ -27,6 +33,7 @@ var applicationInsightsName = '${prefix}-appinsights-${suffix}'
 var cosmosDbAccountName = '${prefix}-cosmos-${suffix}'
 var containerAppEnvironmentName = '${prefix}-caenv-${suffix}'
 var containerAppName = '${prefix}-ca-${suffix}'
+var seedJobName = '${prefix}-seed-${suffix}'
 var contentSafetyName = '${prefix}-contentsafety-${suffix}'
 var apiManagementName = '${prefix}-apim-${suffix}'
 var privateLinkScopeName = '${prefix}-ampls-${suffix}'
@@ -47,6 +54,14 @@ var monitoringMetricsPublisherRoleId = subscriptionResourceId(
   '3913510d-42f4-4e42-8a64-420c390055eb'
 )
 var cosmosDbDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
+var storageBlobDataContributorRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+)
+var apiManagementServiceContributorRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '312a565d-c81f-4fd8-895a-4e21e48d571c'
+)
 
 module network 'modules/network.bicep' = {
   name: 'network'
@@ -159,6 +174,27 @@ module containerApps 'modules/container-apps.bicep' = {
     foundry
     aiSearch
     contentSafety
+  ]
+}
+
+module seedJob 'modules/seed-job.bicep' = {
+  name: 'seed-job'
+  params: {
+    name: seedJobName
+    location: location
+    environmentId: resourceId('Microsoft.App/managedEnvironments', containerAppEnvironmentName)
+    repositoryUrl: seedRepositoryUrl
+    repositoryRef: seedRepositoryRef
+    cosmosDbAccountName: cosmosDbAccountName
+    cosmosDbEndpoint: cosmosDb.outputs.endpoint
+    cosmosDbDataContributorRoleId: cosmosDbDataContributorRoleId
+    storageAccountName: storageAccountName
+    storageBlobDataContributorRoleId: storageBlobDataContributorRoleId
+    apiManagementName: apiManagementName
+    apiManagementServiceContributorRoleId: apiManagementServiceContributorRoleId
+  }
+  dependsOn: [
+    containerApps
   ]
 }
 
@@ -299,3 +335,4 @@ output containerAppUrl string = containerApps.outputs.url
 output contentSafetyName string = contentSafety.outputs.name
 output contentSafetyEndpoint string = contentSafety.outputs.endpoint
 output apiManagementName string = apiManagementName
+output seedJobName string = seedJob.outputs.name
