@@ -258,6 +258,14 @@ eval "$(azd env get-values)"
 
 As mentioned in [Context and Background](#-context-and-background), there are several data sources used throughout the hackathon. Run the script below to upload data to **Cosmos DB** and the **Storage Account**, and to create the required APIs in **API Management**.
 
+The script uses `DefaultAzureCredential`. In the development container it uses
+your Azure CLI login; in Azure Container Apps it uses the workload's managed
+identity. That identity needs these permissions:
+
+- **Cosmos DB Built-in Data Contributor** on the Cosmos DB account
+- **Storage Blob Data Contributor** on the storage account
+- **API Management Service Contributor** on the API Management service
+
 ```bash
 # Run data seeding script
 ./seed-data.sh

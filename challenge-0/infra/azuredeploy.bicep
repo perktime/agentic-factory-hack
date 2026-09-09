@@ -298,3 +298,4 @@ output containerAppName string = containerApps.outputs.appName
 output containerAppUrl string = containerApps.outputs.url
 output contentSafetyName string = contentSafety.outputs.name
 output contentSafetyEndpoint string = contentSafety.outputs.endpoint
+output apiManagementName string = apiManagementName

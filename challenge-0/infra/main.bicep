@@ -51,3 +51,5 @@ output CONTAINER_APP_URL string = infrastructure.outputs.containerAppUrl
 output APPLICATION_INSIGHTS_NAME string = infrastructure.outputs.applicationInsightsName
 output CONTENT_SAFETY_NAME string = infrastructure.outputs.contentSafetyName
 output CONTENT_SAFETY_ENDPOINT string = infrastructure.outputs.contentSafetyEndpoint
+output APIM_NAME string = infrastructure.outputs.apiManagementName
+output COSMOS_DATABASE_NAME string = 'FactoryOpsDB'

@@ -7,7 +7,8 @@ REPO_ROOT_DIR="$(cd "$CHALLENGE0_DIR/.." && pwd)"
 
 cd "$CHALLENGE0_DIR"
 
-# Load environment variables from .env in repo root
+# Load optional environment variables from .env in repo root.
+# Containerized workloads receive these values directly from their environment.
 ENV_FILE="$REPO_ROOT_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
     set -a
@@ -16,22 +17,21 @@ if [ -f "$ENV_FILE" ]; then
     set +a
     echo "✅ Loaded environment variables from $ENV_FILE"
 else
-    echo "❌ .env file not found at $ENV_FILE. Please run challenge-0/get-keys.sh first."
-    exit 1
+    echo "ℹ️ No .env file found; using the current environment."
 fi
 
 echo "🚀 Starting data seeding..."
 
 # Install required Python packages
 echo "📦 Installing required Python packages..."
-pip3 install azure-cosmos --quiet
-pip3 install azure-storage-blob --quiet
+pip3 install azure-cosmos azure-identity azure-storage-blob --quiet
 
 # Create Python script to handle the data import
 cat > seed_data.py << 'EOF'
 import json
 import os
 from azure.cosmos import CosmosClient, PartitionKey
+from azure.identity import DefaultAzureCredential
 
 def load_json_data(file_path):
     """Load data from JSON file"""
@@ -55,7 +55,10 @@ def setup_cosmos_db():
     print("📦 Setting up Cosmos DB...")
     
     # Initialize Cosmos client
-    cosmos_client = CosmosClient(os.environ['COSMOS_ENDPOINT'], os.environ['COSMOS_KEY'])
+    cosmos_client = CosmosClient(
+        os.environ['COSMOS_ENDPOINT'],
+        credential=DefaultAzureCredential(),
+    )
     
     # Create database
     database_name = "FactoryOpsDB"
@@ -135,7 +138,7 @@ def seed_cosmos_data(container_clients):
 def main():
     """Main function to orchestrate the data seeding"""
     # Check required environment variables
-    required_vars = ['COSMOS_ENDPOINT', 'COSMOS_KEY']
+    required_vars = ['COSMOS_ENDPOINT']
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     
     if missing_vars:
@@ -171,6 +174,7 @@ import os
 import glob
 from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceExistsError, AzureError
+from azure.identity import DefaultAzureCredential
 
 
 def short_error(err: Exception) -> str:
@@ -178,11 +182,14 @@ def short_error(err: Exception) -> str:
     return msg.splitlines()[0] if msg else err.__class__.__name__
 
 def get_blob_service_client_from_env():
-    """Create BlobServiceClient using AZURE_STORAGE_CONNECTION_STRING only."""
-    conn = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-    if not conn:
-        raise RuntimeError("Missing AZURE_STORAGE_CONNECTION_STRING in environment.")
-    return BlobServiceClient.from_connection_string(conn)
+    """Create BlobServiceClient using Microsoft Entra authentication."""
+    account_name = os.environ.get('AZURE_STORAGE_ACCOUNT_NAME')
+    if not account_name:
+        raise RuntimeError("Missing AZURE_STORAGE_ACCOUNT_NAME in environment.")
+    return BlobServiceClient(
+        account_url=f"https://{account_name}.blob.core.windows.net",
+        credential=DefaultAzureCredential(),
+    )
 
 def upload_markdown_files(container_name: str, folder_path: str):
     service_client = get_blob_service_client_from_env()
@@ -222,8 +229,8 @@ def main():
     if not os.path.isdir(folder_path):
         raise RuntimeError(f"kb-wiki folder not found at {folder_path}")
 
-    if not os.environ.get('AZURE_STORAGE_CONNECTION_STRING'):
-        raise RuntimeError("Missing storage credentials. Set AZURE_STORAGE_CONNECTION_STRING in environment.")
+    if not os.environ.get('AZURE_STORAGE_ACCOUNT_NAME'):
+        raise RuntimeError("Missing AZURE_STORAGE_ACCOUNT_NAME in environment.")
 
     upload_markdown_files(container_name, folder_path)
 
@@ -236,7 +243,6 @@ python3 seed_blob_wiki.py
 
 # Clean up uploader script
 rm seed_blob_wiki.py
-echo "COSMOS_DATABASE=\"FactoryOpsDB\"" >> ../.env
 
 echo "✅ Blob upload complete!"
 
@@ -246,27 +252,16 @@ echo "✅ Blob upload complete!"
 
 echo "🚀 Seeding API Management (APIM) proxy APIs..."
 
-# APIM seeding requires an Azure CLI login (used by AzureCliCredential).
-if ! command -v az >/dev/null 2>&1; then
-        echo "⚠️ APIM seeding skipped: Azure CLI (az) not found."
-        exit 0
-fi
-
-if ! az account show >/dev/null 2>&1; then
-        echo "⚠️ APIM seeding skipped: not logged into Azure CLI. Run 'az login' and re-run this script."
-        exit 0
-fi
-
-# Validate required env vars (they should come from repo-root .env via challenge-0/get-keys.sh)
+# Validate required environment values.
 missing_vars=()
-for v in AZURE_SUBSCRIPTION_ID RESOURCE_GROUP APIM_NAME COSMOS_ENDPOINT; do
+for v in AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP APIM_NAME COSMOS_ENDPOINT; do
         if [ -z "${!v}" ]; then
                 missing_vars+=("$v")
         fi
 done
 if [ ${#missing_vars[@]} -ne 0 ]; then
         echo "⚠️ APIM seeding skipped: missing env var(s): ${missing_vars[*]}"
-        echo "   Tip: run challenge-0/get-keys.sh to generate the repo-root .env"
+    echo "   Tip: load azd outputs with: eval \"\$(azd env get-values)\""
         exit 0
 fi
 
@@ -278,7 +273,7 @@ cat > seed_apim_cosmos_mi.py << 'EOF'
 import os
 from urllib.parse import urlparse
 
-from azure.identity import AzureCliCredential
+from azure.identity import DefaultAzureCredential
 from azure.mgmt.apimanagement import ApiManagementClient
 from azure.mgmt.apimanagement.models import (
         ApiCreateOrUpdateParameter,
@@ -298,7 +293,7 @@ def require_env(name: str) -> str:
 
 
 sub_id = require_env("AZURE_SUBSCRIPTION_ID")
-rg = require_env("RESOURCE_GROUP")
+rg = require_env("AZURE_RESOURCE_GROUP")
 service = require_env("APIM_NAME")
 cosmos_endpoint = require_env("COSMOS_ENDPOINT")  # e.g. https://<account>.documents.azure.com/
 
@@ -432,7 +427,7 @@ def policy_query_by_id(collection: str, param_name: str, field: str) -> str:
         ).strip()
 
 
-cred = AzureCliCredential()
+cred = DefaultAzureCredential()
 client = ApiManagementClient(cred, sub_id)
 
 
