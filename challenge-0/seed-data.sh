@@ -31,6 +31,7 @@ cat > seed_data.py << 'EOF'
 import json
 import os
 from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos.exceptions import CosmosResourceExistsError
 from azure.identity import DefaultAzureCredential
 
 def load_json_data(file_path):
@@ -67,7 +68,7 @@ def setup_cosmos_db():
         print(f"✅ Database '{database_name}' ready")
     except Exception as e:
         print(f"❌ Error creating database: {e}")
-        return None, None
+        raise
     
     # Container definitions with partition keys and optional TTL
     containers_config = {
@@ -95,6 +96,7 @@ def setup_cosmos_db():
             print(f"✅ Container '{container_name}' ready")
         except Exception as e:
             print(f"❌ Error creating container {container_name}: {e}")
+            raise
     
     return database, container_clients
 
@@ -130,9 +132,11 @@ def seed_cosmos_data(container_clients):
                             continue
                         container.create_item(body=item)
                         success_count += 1
+                    except CosmosResourceExistsError:
+                        pass
                     except Exception as e:
-                        if "Conflict" not in str(e):  # Ignore conflicts (already exists)
-                            print(f"⚠️ Error inserting item into {container_name}: {e}")
+                        print(f"❌ Error inserting item into {container_name}: {e}")
+                        raise
                 print(f"✅ Imported {success_count} items into {container_name}")
 
 def main():
@@ -146,9 +150,8 @@ def main():
         return
     
     # Set up Cosmos DB
-    database, container_clients = setup_cosmos_db()
-    if container_clients:
-        seed_cosmos_data(container_clients)
+    _, container_clients = setup_cosmos_db()
+    seed_cosmos_data(container_clients)
     
     print("✅ Data seeding completed successfully!")
 
