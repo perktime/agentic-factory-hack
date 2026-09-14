@@ -15,7 +15,7 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' = {
     hostingMode: 'default'
     replicaCount: 1
     partitionCount: 1
-    publicNetworkAccess: 'disabled'
+    publicNetworkAccess: 'enabled'
     disableLocalAuth: true
   }
 }

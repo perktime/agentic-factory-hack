@@ -4,7 +4,7 @@ import os
 import requests
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import MCPTool, PromptAgentDefinition
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity import AzureCliCredential, get_bearer_token_provider
 from dotenv import load_dotenv
 
 # Configuration
@@ -24,9 +24,8 @@ maintenance_data_mcp_endpoint = os.environ.get(
     "MAINTENANCE_MCP_SERVER_ENDPOINT")
 
 
-def create_apim_mcp_connection(connection_name, mcp_endpoint):
+def create_apim_mcp_connection(connection_name, mcp_endpoint, credential):
     # Provide connection details
-    credential = DefaultAzureCredential()
     project_connection_name = connection_name
 
     # Get bearer token for authentication
@@ -61,19 +60,20 @@ def create_apim_mcp_connection(connection_name, mcp_endpoint):
 
 async def main():
     try:
-        # Register APIM MCP servers as project connection
-        create_apim_mcp_connection(
-            connection_name="machine-data-connection", mcp_endpoint=machine_data_mcp_endpoint)
-        create_apim_mcp_connection(
-            connection_name="maintenance-data-connection", mcp_endpoint=maintenance_data_mcp_endpoint)
+        with AzureCliCredential() as credential:
+            # Register APIM MCP servers as project connection
+            create_apim_mcp_connection(
+                connection_name="machine-data-connection", mcp_endpoint=machine_data_mcp_endpoint, credential=credential)
+            create_apim_mcp_connection(
+                connection_name="maintenance-data-connection", mcp_endpoint=maintenance_data_mcp_endpoint, credential=credential)
 
-        # Create Agent
-        project_client = AIProjectClient(
-            endpoint=project_endpoint, credential=DefaultAzureCredential())
-        agent = project_client.agents.create_version(
-            agent_name="AnomalyClassificationAgent",
-            description="Anomaly classification agent",
-            definition=PromptAgentDefinition(
+            # Create Agent
+            project_client = AIProjectClient(
+                endpoint=project_endpoint, credential=credential)
+            agent = project_client.agents.create_version(
+                agent_name="AnomalyClassificationAgent",
+                description="Anomaly classification agent",
+                definition=PromptAgentDefinition(
                 model=model_name,
                 instructions="""You are a Anomaly Classification Agent evaluating machine anomalies for warning and critical threshold violations.
                         You will receive anomaly data for a given machine. Your task is to:
@@ -117,36 +117,36 @@ async def main():
                     )
 
                 ]
+                )
+
             )
 
-        )
+            print(f"✅ Created Anomaly Classification Agent: {agent.id}")
 
-        print(f"✅ Created Anomaly Classification Agent: {agent.id}")
+            # Test the agent with a simple query
+            print("\n🧪 Testing the agent with a sample query...")
+            try:
+                pass
+                # Get the OpenAI client for responses and conversations
+                openai_client = project_client.get_openai_client()
 
-        # Test the agent with a simple query
-        print("\n🧪 Testing the agent with a sample query...")
-        try:
-            pass
-            # Get the OpenAI client for responses and conversations
-            openai_client = project_client.get_openai_client()
+                # Create conversation
+                conversation = openai_client.conversations.create()
 
-            # Create conversation
-            conversation = openai_client.conversations.create()
+                # Ask a question
+                response = openai_client.responses.create(
+                    conversation=conversation.id,
+                    input='Hello, can you classify the following anomalies for machine-001: [{"metric": "curing_temperature", "value": 179.2},{"metric": "cycle_time", "value": 14.5}]',
+                    extra_body={"agent_reference": {"name": agent.name,
+                                                    "type": "agent_reference"}},
+                )
 
-            # Ask a question
-            response = openai_client.responses.create(
-                conversation=conversation.id,
-                input='Hello, can you classify the following anomalies for machine-001: [{"metric": "curing_temperature", "value": 179.2},{"metric": "cycle_time", "value": 14.5}]',
-                extra_body={"agent_reference": {"name": agent.name,
-                                                "type": "agent_reference"}},
-            )
+                print(f"✅ Agent response: {response.output_text}")
+            except Exception as test_error:
+                print(
+                    f"⚠️  Agent test failed (but agent was still created): {test_error}")
 
-            print(f"✅ Agent response: {response.output_text}")
-        except Exception as test_error:
-            print(
-                f"⚠️  Agent test failed (but agent was still created): {test_error}")
-
-        return agent
+            return agent
 
     except Exception as e:
         print(f"❌ Error creating agent: {e}")
