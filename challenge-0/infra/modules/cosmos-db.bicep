@@ -35,6 +35,16 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
   }
 }
 
+resource factoryOpsDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023-04-15' = {
+  parent: cosmosDbAccount
+  name: 'FactoryOpsDB'
+  properties: {
+    resource: {
+      id: 'FactoryOpsDB'
+    }
+  }
+}
+
 resource apiManagementDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-05-01-preview' = {
   parent: cosmosDbAccount
   name: guid(apiManagementId, cosmosDbAccount.id, cosmosDbDataContributorRoleId)
