@@ -4,7 +4,10 @@ param location string
 param agentSubnetId string
 param applicationInsightsName string
 param applicationInsightsId string
+param logAnalyticsWorkspaceName string
 param monitoringMetricsPublisherRoleId string
+param monitoringReaderRoleId string
+param logAnalyticsReaderRoleId string
 param searchServiceName string
 param searchServicePrincipalId string
 param cognitiveServicesUserRoleId string
@@ -17,6 +20,10 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' existing = {
 
 resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: applicationInsightsName
+}
+
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07-01' existing = {
+  name: logAnalyticsWorkspaceName
 }
 
 resource aiFoundry 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
@@ -188,6 +195,26 @@ resource projectMonitoringMetricsPublisher 'Microsoft.Authorization/roleAssignme
   name: guid(applicationInsights.id, aiProject.id, monitoringMetricsPublisherRoleId)
   properties: {
     roleDefinitionId: monitoringMetricsPublisherRoleId
+    principalId: aiProject.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource projectMonitoringReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: applicationInsights
+  name: guid(applicationInsights.id, aiProject.id, monitoringReaderRoleId)
+  properties: {
+    roleDefinitionId: monitoringReaderRoleId
+    principalId: aiProject.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource projectLogAnalyticsReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: logAnalyticsWorkspace
+  name: guid(logAnalyticsWorkspace.id, aiProject.id, logAnalyticsReaderRoleId)
+  properties: {
+    roleDefinitionId: logAnalyticsReaderRoleId
     principalId: aiProject.identity.principalId
     principalType: 'ServicePrincipal'
   }

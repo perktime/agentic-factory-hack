@@ -53,6 +53,14 @@ var monitoringMetricsPublisherRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '3913510d-42f4-4e42-8a64-420c390055eb'
 )
+var monitoringReaderRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '43d0d8ad-25c7-4714-9337-8ba259a9fe05'
+)
+var logAnalyticsReaderRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '73c42c96-874c-492b-b04d-ab87d138a893'
+)
 var cosmosDbDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
 var storageBlobDataContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
@@ -157,7 +165,10 @@ module foundry 'modules/foundry.bicep' = {
     agentSubnetId: network.outputs.foundrySubnetId
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     applicationInsightsId: monitoring.outputs.applicationInsightsId
+    logAnalyticsWorkspaceName: monitoring.outputs.logAnalyticsWorkspaceName
     monitoringMetricsPublisherRoleId: monitoringMetricsPublisherRoleId
+    monitoringReaderRoleId: monitoringReaderRoleId
+    logAnalyticsReaderRoleId: logAnalyticsReaderRoleId
     searchServiceName: aiSearch.outputs.name
     searchServicePrincipalId: aiSearch.outputs.principalId
     cognitiveServicesUserRoleId: cognitiveServicesUserRoleId

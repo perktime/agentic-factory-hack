@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "6923059219994922819"
+      "templateHash": "16423430496099694975"
     }
   },
   "parameters": {
@@ -70,6 +70,8 @@
     "searchServiceContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')]",
     "searchIndexDataReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '1407120a-92aa-4202-b7e9-c0e197c71c8f')]",
     "monitoringMetricsPublisherRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')]",
+    "monitoringReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '43d0d8ad-25c7-4714-9337-8ba259a9fe05')]",
+    "logAnalyticsReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')]",
     "cosmosDbDataContributorRoleId": "00000000-0000-0000-0000-000000000002",
     "storageBlobDataContributorRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
     "storageBlobDataReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')]",
@@ -1099,8 +1101,17 @@
           "applicationInsightsId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.applicationInsightsId.value]"
           },
+          "logAnalyticsWorkspaceName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.logAnalyticsWorkspaceName.value]"
+          },
           "monitoringMetricsPublisherRoleId": {
             "value": "[variables('monitoringMetricsPublisherRoleId')]"
+          },
+          "monitoringReaderRoleId": {
+            "value": "[variables('monitoringReaderRoleId')]"
+          },
+          "logAnalyticsReaderRoleId": {
+            "value": "[variables('logAnalyticsReaderRoleId')]"
           },
           "searchServiceName": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-search'), '2025-04-01').outputs.name.value]"
@@ -1125,7 +1136,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "4649018696747926562"
+              "templateHash": "13025529112992952066"
             }
           },
           "parameters": {
@@ -1147,7 +1158,16 @@
             "applicationInsightsId": {
               "type": "string"
             },
+            "logAnalyticsWorkspaceName": {
+              "type": "string"
+            },
             "monitoringMetricsPublisherRoleId": {
+              "type": "string"
+            },
+            "monitoringReaderRoleId": {
+              "type": "string"
+            },
+            "logAnalyticsReaderRoleId": {
               "type": "string"
             },
             "searchServiceName": {
@@ -1367,6 +1387,34 @@
               "name": "[guid(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), parameters('monitoringMetricsPublisherRoleId'))]",
               "properties": {
                 "roleDefinitionId": "[parameters('monitoringMetricsPublisherRoleId')]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Insights/components', parameters('applicationInsightsName'))]",
+              "name": "[guid(resourceId('Microsoft.Insights/components', parameters('applicationInsightsName')), resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), parameters('monitoringReaderRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[parameters('monitoringReaderRoleId')]",
+                "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+              "name": "[guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName')), resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), parameters('logAnalyticsReaderRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[parameters('logAnalyticsReaderRoleId')]",
                 "principalId": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('name'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]",
                 "principalType": "ServicePrincipal"
               },
