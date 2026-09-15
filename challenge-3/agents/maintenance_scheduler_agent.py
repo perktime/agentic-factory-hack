@@ -21,6 +21,7 @@ from agent_framework.foundry import FoundryChatClient, FoundryAgent
 from agent_framework.observability import create_resource, enable_instrumentation, get_tracer, configure_otel_providers
 from azure.monitor.opentelemetry import configure_azure_monitor
 from azure.ai.projects.aio import AIProjectClient
+from azure.identity import AzureCliCredential as SyncAzureCliCredential
 from azure.identity.aio import AzureCliCredential
 from opentelemetry.trace import SpanKind
 from dotenv import load_dotenv
@@ -33,7 +34,7 @@ from services.cosmos_db_service import (
 )
 
 logger = logging.getLogger(__name__)
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 # =============================================================================
 # Agent Service
@@ -307,6 +308,7 @@ async def main():
     deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
     otel_exporter_endpoint = os.getenv(
         "OTEL_EXPORTER_OTLP_ENDPOINT")
+    os.environ.setdefault("OTEL_SERVICE_NAME", "MaintenanceSchedulerAgent")
 
     # Validate
     if not all([cosmos_endpoint, database_name, foundry_project_endpoint]):
@@ -320,9 +322,10 @@ async def main():
         configure_azure_monitor(
             connection_string=os.getenv(
                 "APPLICATIONINSIGHTS_CONNECTION_STRING"),
+            credential=SyncAzureCliCredential(),
             resource=create_resource(),  # Uses OTEL_SERVICE_NAME, etc.
         )
-        enable_instrumentation(enable_sensitive_data=True)
+    enable_instrumentation(enable_sensitive_data=True)
 
     cosmos_service = CosmosDbService(cosmos_endpoint, database_name)
 

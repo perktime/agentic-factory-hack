@@ -11,7 +11,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07
     features: {
       searchVersion: 1
     }
-    publicNetworkAccessForIngestion: 'Disabled'
+    publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
     sku: {
       name: 'PerGB2018'
@@ -27,7 +27,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     WorkspaceResourceId: logAnalyticsWorkspace.id
     DisableLocalAuth: true
-    publicNetworkAccessForIngestion: 'Disabled'
+    publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
   }
 }
@@ -37,7 +37,7 @@ resource privateLinkScope 'Microsoft.Insights/privateLinkScopes@2023-06-01-previ
   location: 'global'
   properties: {
     accessModeSettings: {
-      ingestionAccessMode: 'PrivateOnly'
+      ingestionAccessMode: 'Open'
       queryAccessMode: 'Open'
     }
   }
