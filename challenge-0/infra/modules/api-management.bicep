@@ -1,6 +1,7 @@
 param name string
 param location string
 param subnetId string
+param searchServiceName string
 
 resource apiManagement 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
   name: name
@@ -19,6 +20,30 @@ resource apiManagement 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
     virtualNetworkConfiguration: {
       subnetResourceId: subnetId
     }
+  }
+}
+
+resource machineWikiMcpApi 'Microsoft.ApiManagement/service/apis@2023-03-01-preview' = {
+  parent: apiManagement
+  name: 'machine-wiki-mcp'
+  properties: {
+    displayName: 'Machine Wiki MCP'
+    path: 'machine-wiki'
+    protocols: [
+      'https'
+    ]
+    serviceUrl: 'https://${searchServiceName}.search.windows.net/knowledgebases/machine-kb'
+    subscriptionRequired: false
+  }
+}
+
+resource machineWikiMcpOperation 'Microsoft.ApiManagement/service/apis/operations@2023-03-01-preview' = {
+  parent: machineWikiMcpApi
+  name: 'mcp-post'
+  properties: {
+    displayName: 'MCP POST'
+    method: 'POST'
+    urlTemplate: '/mcp'
   }
 }
 

@@ -15,6 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TEMPLATE_FILE="$REPO_ROOT/challenge-0/infra/azuredeploy.json"
 ADDITIONAL_TAGS=""
+STORAGE_POLICY_ASSIGNMENT_ID=""
+STORAGE_POLICY_DEFINITION_REFERENCE_ID="storageaccountpublicnetworkmodify"
 
 # Colors for output
 RED='\033[0;31m'
@@ -24,7 +26,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 usage() {
-    echo "Usage: $0 -u <username> -g <resource-group> -l <location> [-t <tags>]"
+    echo "Usage: $0 -u <username> -g <resource-group> -l <location> [-t <tags>] [-p <policy-assignment-id>]"
     echo ""
     echo "NOTE: This script is for workshop facilitators only, not for hack participants."
     echo ""
@@ -35,6 +37,10 @@ usage() {
     echo ""
     echo "Optional parameters:"
     echo "  -t, --tags            Additional tags in format 'key1=value1 key2=value2'"
+    echo "  -p, --storage-policy-assignment-id"
+    echo "                         Policy assignment requiring a Storage network exemption"
+    echo "      --storage-policy-definition-reference-id"
+    echo "                         Policy definition reference ID (default: storageaccountpublicnetworkmodify)"
     echo "  -h, --help            Show this help message"
     echo ""
     echo "Example:"
@@ -76,6 +82,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--tags)
             ADDITIONAL_TAGS="$2"
+            shift 2
+            ;;
+        -p|--storage-policy-assignment-id)
+            STORAGE_POLICY_ASSIGNMENT_ID="$2"
+            shift 2
+            ;;
+        --storage-policy-definition-reference-id)
+            STORAGE_POLICY_DEFINITION_REFERENCE_ID="$2"
             shift 2
             ;;
         -h|--help)
@@ -178,6 +192,7 @@ assign_role "Owner"
 assign_role "Azure AI Developer"
 assign_role "Cognitive Services User"
 assign_role "Search Service Contributor"
+assign_role "Search Index Data Reader"
 
 log_success "All roles assigned for $USERNAME"
 
@@ -210,6 +225,33 @@ if az deployment group create \
         az deployment group show --name "$DEPLOYMENT_NAME" --resource-group "$RESOURCE_GROUP" --query "properties.outputs" -o table
     echo "=========================================="
     echo ""
+
+    if [[ -n "$STORAGE_POLICY_ASSIGNMENT_ID" ]]; then
+        STORAGE_ACCOUNT_NAME=$(jq -r '.properties.outputs.storageAccountName.value' "deployment-$RESOURCE_GROUP.json")
+        STORAGE_SCOPE="$RG_SCOPE/providers/Microsoft.Storage/storageAccounts/$STORAGE_ACCOUNT_NAME"
+
+        log_info "Creating the Storage network policy exemption"
+        az policy exemption create \
+            --name allow-search-trusted-storage-access \
+            --display-name "Allow Azure AI Search trusted-service access" \
+            --description "Workshop Storage requires selected-network public access so Azure AI Search can authenticate with its managed identity." \
+            --exemption-category Waiver \
+            --scope "$STORAGE_SCOPE" \
+            --policy-assignment "$STORAGE_POLICY_ASSIGNMENT_ID" \
+            --policy-definition-reference-ids "$STORAGE_POLICY_DEFINITION_REFERENCE_ID" \
+            --output none
+
+        az storage account update \
+            --name "$STORAGE_ACCOUNT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --public-network-access Enabled \
+            --default-action Deny \
+            --bypass AzureServices \
+            --allow-shared-key-access false \
+            --output none
+        log_success "Storage policy exemption and network settings applied"
+    fi
+
     log_success "Provisioning complete for user: $USERNAME"
     echo "Deployment details saved to: deployment-$RESOURCE_GROUP.json"
 else

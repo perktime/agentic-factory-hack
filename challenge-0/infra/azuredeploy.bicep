@@ -58,6 +58,10 @@ var storageBlobDataContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 )
+var storageBlobDataReaderRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
+)
 var apiManagementServiceContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '312a565d-c81f-4fd8-895a-4e21e48d571c'
@@ -84,6 +88,7 @@ module apiManagement 'modules/api-management.bicep' = {
     name: apiManagementName
     location: location
     subnetId: network.outputs.apiManagementSubnetId
+    searchServiceName: searchServiceName
   }
 }
 
@@ -92,6 +97,8 @@ module storage 'modules/storage.bicep' = {
   params: {
     name: storageAccountName
     location: location
+    searchServicePrincipalId: aiSearch.outputs.principalId
+    storageBlobDataReaderRoleId: storageBlobDataReaderRoleId
   }
 }
 
