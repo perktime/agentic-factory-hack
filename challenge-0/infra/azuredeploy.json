@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "1242212687575112975"
+      "templateHash": "9502238986477393092"
     }
   },
   "parameters": {
@@ -602,7 +602,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "6131807597407315355"
+              "templateHash": "9776906282210888017"
             }
           },
           "parameters": {
@@ -630,7 +630,7 @@
                 "features": {
                   "searchVersion": 1
                 },
-                "publicNetworkAccessForIngestion": "Disabled",
+                "publicNetworkAccessForIngestion": "Enabled",
                 "publicNetworkAccessForQuery": "Enabled",
                 "sku": {
                   "name": "PerGB2018"
@@ -647,7 +647,7 @@
                 "Application_Type": "web",
                 "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
                 "DisableLocalAuth": true,
-                "publicNetworkAccessForIngestion": "Disabled",
+                "publicNetworkAccessForIngestion": "Enabled",
                 "publicNetworkAccessForQuery": "Enabled"
               },
               "dependsOn": [
@@ -661,7 +661,7 @@
               "location": "global",
               "properties": {
                 "accessModeSettings": {
-                  "ingestionAccessMode": "PrivateOnly",
+                  "ingestionAccessMode": "Open",
                   "queryAccessMode": "Open"
                 }
               }

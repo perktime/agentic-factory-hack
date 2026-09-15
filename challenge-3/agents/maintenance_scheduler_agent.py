@@ -16,14 +16,13 @@ import sys
 from datetime import datetime
 from typing import List
 
-from agent_framework import Agent
-from agent_framework.foundry import FoundryChatClient, FoundryAgent
+from agent_framework.foundry import FoundryAgent
 from agent_framework.observability import create_resource, enable_instrumentation, get_tracer, configure_otel_providers
 from azure.monitor.opentelemetry import configure_azure_monitor
 from azure.ai.projects.aio import AIProjectClient
 from azure.identity import AzureCliCredential as SyncAzureCliCredential
 from azure.identity.aio import AzureCliCredential
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, get_tracer_provider
 from dotenv import load_dotenv
 from services.cosmos_db_service import (
     CosmosDbService,
@@ -44,9 +43,16 @@ load_dotenv(override=False)
 class MaintenanceSchedulerAgent:
     """AI Agent for predictive maintenance scheduling"""
 
-    def __init__(self, project_endpoint: str, deployment_name: str, cosmos_service: CosmosDbService):
+    def __init__(
+        self,
+        project_endpoint: str,
+        deployment_name: str,
+        agent_version: str,
+        cosmos_service: CosmosDbService,
+    ):
         self.project_endpoint = project_endpoint
         self.deployment_name = deployment_name
+        self.agent_version = agent_version
         self.cosmos_service = cosmos_service
 
     @get_tracer().start_as_current_span("predict_schedule")
@@ -63,16 +69,6 @@ class MaintenanceSchedulerAgent:
         print(
             f"   Using persistent chat history for machine: {work_order.machine_id}")
 
-        instructions = """You are a predictive maintenance expert specializing in industrial tire manufacturing equipment.
-
-Analyze historical maintenance data and recommend optimal maintenance schedules based on:
-1. Historical failure patterns
-2. Risk scores (time since last maintenance, fault frequency, downtime costs, criticality)
-3. Optimal maintenance windows considering production impact
-4. Detailed reasoning
-
-Always respond in valid JSON format as requested."""
-
         # Build full prompt including any chat history context
         full_prompt = context
         if chat_history_json:
@@ -85,27 +81,15 @@ Always respond in valid JSON format as requested."""
             except Exception as e:
                 print(f"   Warning: Could not restore chat history: {e}")
 
-        agent = Agent(
-            client=FoundryChatClient(credential=AzureCliCredential(),
-                                     project_endpoint=self.project_endpoint,
-                                     model=self.deployment_name),
+        agent = FoundryAgent(
+            project_endpoint=self.project_endpoint,
+            agent_name="MaintenanceSchedulerAgent",
+            agent_version=self.agent_version,
+            credential=AzureCliCredential(),
             name="MaintenanceSchedulerAgent",
             description="Predictive maintenance scheduling agent for tire manufacturing",
-            instructions=instructions,
-            id="MaintenanceSchedulerAgent"
+            id="MaintenanceSchedulerAgent",
         )
-
-        # Use the Foundry PromptAgent
-        # agent = FoundryAgent(
-        #     project_endpoint=self.project_endpoint,
-        #     name="MaintenanceSchedulerAgent",
-        #     agent_name="MaintenanceSchedulerAgent",
-        #     credential=AzureCliCredential(),
-        #     default_options={
-        #         "model": "gpt-5.4",
-        #         "extra_body": {"model": "gpt-5.4"},
-        #     }
-        # )
 
         print(f"   ✅ Using agent: {agent.id}")
 
@@ -309,6 +293,7 @@ async def main():
     otel_exporter_endpoint = os.getenv(
         "OTEL_EXPORTER_OTLP_ENDPOINT")
     os.environ.setdefault("OTEL_SERVICE_NAME", "MaintenanceSchedulerAgent")
+    os.environ.setdefault("AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING", "true")
 
     # Validate
     if not all([cosmos_endpoint, database_name, foundry_project_endpoint]):
@@ -328,6 +313,8 @@ async def main():
     enable_instrumentation(enable_sensitive_data=True)
 
     cosmos_service = CosmosDbService(cosmos_endpoint, database_name)
+    registered_agent_id = "MaintenanceSchedulerAgent"
+    registered_agent_version = ""
 
     # Register agent in Azure AI Foundry portal
     async with (
@@ -364,7 +351,21 @@ Consider factors like:
 - Production impact of maintenance windows
 - Equipment estimated repair duration
 
-Output JSON with: scheduled_date, risk_score (0-100), predicted_failure_probability (0-1), recommended_action (IMMEDIATE/URGENT/SCHEDULED/MONITOR), and reasoning.""",
+Return valid JSON using exactly this schema:
+{
+    "scheduledDate": "<ISO datetime>",
+    "maintenanceWindow": {
+        "id": "<window ID>",
+        "startTime": "<ISO datetime>",
+        "endTime": "<ISO datetime>",
+        "productionImpact": "<Low|Medium|High>",
+        "isAvailable": true
+    },
+    "riskScore": <0-100>,
+    "predictedFailureProbability": <0.0-1.0>,
+    "recommendedAction": "<IMMEDIATE|URGENT|SCHEDULED>",
+    "reasoning": "<detailed explanation>"
+}""",
             )
 
             print(
@@ -379,6 +380,9 @@ Output JSON with: scheduled_date, risk_score (0-100), predicted_failure_probabil
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )
+            registered_agent_id = getattr(
+                registered_agent, "id", registered_agent_id)
+            registered_agent_version = registered_agent_id.rsplit(":", 1)[-1]
             print("   ✅ New version created!")
             print(
                 f"      Agent ID: {registered_agent.id if hasattr(registered_agent, 'id') else 'N/A'}")
@@ -394,9 +398,18 @@ Output JSON with: scheduled_date, risk_score (0-100), predicted_failure_probabil
             logger.warning(f"Could not register agent in portal: {e}")
 
     with get_tracer().start_as_current_span("Scenario: Predictive Maintenance Agent", kind=SpanKind.CLIENT) as current_span:
+        current_span.set_attribute("gen_ai.operation.name", "invoke_agent")
+        current_span.set_attribute("gen_ai.agent.name", "MaintenanceSchedulerAgent")
+        current_span.set_attribute("gen_ai.agent.id", registered_agent_id)
+        current_span.set_attribute("gen_ai.provider.name", "microsoft.foundry")
+        current_span.set_attribute("gen_ai.request.model", deployment_name)
 
         agent_service = MaintenanceSchedulerAgent(
-            foundry_project_endpoint, deployment_name, cosmos_service)
+            foundry_project_endpoint,
+            deployment_name,
+            registered_agent_version,
+            cosmos_service,
+        )
 
         # Get work order
         print("1. Retrieving work order...")
@@ -461,3 +474,4 @@ Output JSON with: scheduled_date, risk_score (0-100), predicted_failure_probabil
 
 if __name__ == "__main__":
     asyncio.run(main())
+    get_tracer_provider().force_flush(timeout_millis=30000)
