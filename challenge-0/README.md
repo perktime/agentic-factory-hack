@@ -295,8 +295,9 @@ Container Apps virtual network; no resource keys are stored in its configuration
 To perform certain tasks in the hackathon, you need the following permissions:
 
 - `Azure AI Developer` on the **Foundry project** resource (agent/project operations)
-ag- `Foundry User` on the **AI Services** resource (agent create/run operations)
+- `Foundry User` on the **AI Services** resource (agent create/run operations)
 - `Cognitive Services OpenAI Contributor` on the **Azure OpenAI** resource (calling chat completions)
+- `Cosmos DB Built-in Data Contributor` on the **Cosmos DB account** (querying resources and creating work orders)
 
 > [!IMPORTANT]
 > Depending on the setup for the hackathon, the Azure roles might already have been assigned to you in advance, and you can then skip this step.
@@ -336,6 +337,15 @@ az role assignment create \
   --assignee-principal-type User \
   --role "Cognitive Services OpenAI Contributor" \
   --scope "$OPENAI_RESOURCE_ID"
+
+# Assign "Cosmos DB Built-in Data Contributor" at the Cosmos DB account scope
+# This is a Cosmos DB data-plane role, so use the Cosmos DB role assignment command
+az cosmosdb sql role assignment create \
+  --account-name "$COSMOS_NAME" \
+  --resource-group "$AZURE_RESOURCE_GROUP" \
+  --scope "/" \
+  --principal-id "$ME_OBJECT_ID" \
+  --role-definition-id "00000000-0000-0000-0000-000000000002"
 
 # Refresh your credentials with the new permissions
 az login --use-device-code
