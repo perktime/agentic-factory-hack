@@ -104,6 +104,7 @@ class InventoryItem:
     current_stock: int = 0
     min_stock: int = 0
     reorder_point: int = 0
+    unit_cost: float = 0.0
     location: str = ""
 
 
@@ -469,10 +470,14 @@ class CosmosDbService:
                         InventoryItem(
                             id=item.get("id", ""),
                             part_number=item.get("partNumber", ""),
-                            part_name=item.get("partName", ""),
-                            current_stock=item.get("currentStock", 0),
-                            min_stock=item.get("minStock", 0),
-                            reorder_point=item.get("reorderPoint", 0),
+                            part_name=item.get("partName", item.get("name", "")),
+                            current_stock=item.get(
+                                "currentStock", item.get("quantityInStock", 0)),
+                            min_stock=item.get(
+                                "minStock", item.get("reorderLevel", 0)),
+                            reorder_point=item.get(
+                                "reorderPoint", item.get("reorderLevel", 0)),
+                            unit_cost=item.get("unitCost", 0.0),
                             location=item.get("location", ""),
                         )
                     )

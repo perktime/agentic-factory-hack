@@ -14,7 +14,7 @@ import logging
 import os
 import sys
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import List
 
 from agent_framework import Agent
@@ -107,27 +107,79 @@ Always respond in valid JSON format as requested."""
         json_response = self._extract_json(response_text)
         data = json.loads(json_response)
 
-        return PartsOrder(
-            id=f"PO-{str(uuid.uuid4())[:8]}",
-            work_order_id=work_order.id,
-            order_items=[
+        inventory_costs = {
+            item.part_number: item.unit_cost for item in inventory
+        }
+        selected_supplier = next(
+            (supplier for supplier in suppliers
+             if supplier.id == data.get("supplierId")),
+            suppliers[0],
+        )
+        model_order_items = data.get("orderItems") or [
+            {
+                "partNumber": part.part_number,
+                "partName": part.part_name,
+                "quantity": part.quantity,
+            }
+            for part in work_order.required_parts
+            if not part.is_available
+        ]
+        order_items = []
+        for item in model_order_items:
+            quantity = int(item.get("quantity") or 0)
+            unit_cost = self._to_float(
+                item.get("unitCost"),
+                inventory_costs.get(item["partNumber"], 0.0),
+            )
+            total_cost = quantity * unit_cost
+            order_items.append(
                 OrderItem(
                     part_number=item["partNumber"],
                     part_name=item["partName"],
-                    quantity=item["quantity"],
-                    unit_cost=item["unitCost"],
-                    total_cost=item["totalCost"],
+                    quantity=quantity,
+                    unit_cost=unit_cost,
+                    total_cost=total_cost,
                 )
-                for item in data["orderItems"]
-            ],
-            supplier_id=data["supplierId"],
-            supplier_name=data["supplierName"],
-            total_cost=data["totalCost"],
-            expected_delivery_date=datetime.fromisoformat(
-                data["expectedDeliveryDate"].replace("Z", "+00:00")),
+            )
+
+        return PartsOrder(
+            id=f"PO-{str(uuid.uuid4())[:8]}",
+            work_order_id=work_order.id,
+            order_items=order_items,
+            supplier_id=selected_supplier.id,
+            supplier_name=selected_supplier.name,
+            total_cost=sum(item.total_cost for item in order_items),
+            expected_delivery_date=self._parse_delivery_date(
+                data.get("expectedDeliveryDate"),
+                selected_supplier.lead_time_days,
+            ),
             order_status="Pending",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
+
+    @staticmethod
+    def _to_float(value, fallback: float) -> float:
+        """Use a grounded fallback when the model omits a numeric value."""
+
+        if value is None:
+            return fallback
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    @staticmethod
+    def _parse_delivery_date(value, lead_time_days: int) -> datetime:
+        """Use supplier lead time when the model omits an expected date."""
+
+        if value:
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except ValueError:
+                pass
+
+        return datetime.now(UTC) + timedelta(days=lead_time_days)
 
     async def _save_interaction_history(self, work_order_id: str, user_context: str, assistant_response: str):
         """Save interaction history to Cosmos DB"""
@@ -177,6 +229,7 @@ Always respond in valid JSON format as requested."""
                 lines.append(f"  * Current Stock: {item.current_stock}")
                 lines.append(f"  * Minimum Stock: {item.min_stock}")
                 lines.append(f"  * Reorder Point: {item.reorder_point}")
+                lines.append(f"  * Unit Cost: ${item.unit_cost:.2f}")
                 lines.append(
                     f"  * Status: {'⚠️  NEEDS ORDERING' if needs_order else '✓ Adequate'}")
                 lines.append(f"  * Location: {item.location}")
@@ -328,7 +381,7 @@ Always respond in valid JSON format with: supplierId, supplierName, orderItems (
                 metadata={
                     "framework": "agent-framework",
                     "purpose": "parts_ordering",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
             print("   ✅ New version created!")
