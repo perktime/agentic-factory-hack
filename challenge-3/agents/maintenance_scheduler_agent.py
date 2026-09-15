@@ -302,7 +302,6 @@ async def main():
 
     # Load configuration (use AI_FOUNDRY_PROJECT_ENDPOINT for consistency with other challenge scripts)
     cosmos_endpoint = os.getenv("COSMOS_ENDPOINT")
-    cosmos_key = os.getenv("COSMOS_KEY")
     database_name = os.getenv("COSMOS_DATABASE_NAME")
     foundry_project_endpoint = os.getenv("AI_FOUNDRY_PROJECT_ENDPOINT")
     deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
@@ -310,9 +309,9 @@ async def main():
         "OTEL_EXPORTER_OTLP_ENDPOINT")
 
     # Validate
-    if not all([cosmos_endpoint, cosmos_key, database_name, foundry_project_endpoint]):
+    if not all([cosmos_endpoint, database_name, foundry_project_endpoint]):
         print("Error: Missing required environment variables.")
-        print("Required: COSMOS_ENDPOINT, COSMOS_KEY, COSMOS_DATABASE_NAME, AI_FOUNDRY_PROJECT_ENDPOINT")
+        print("Required: COSMOS_ENDPOINT, COSMOS_DATABASE_NAME, AI_FOUNDRY_PROJECT_ENDPOINT")
         return
 
     if otel_exporter_endpoint:
@@ -325,8 +324,7 @@ async def main():
         )
         enable_instrumentation(enable_sensitive_data=True)
 
-    cosmos_service = CosmosDbService(
-        cosmos_endpoint, cosmos_key, database_name)
+    cosmos_service = CosmosDbService(cosmos_endpoint, database_name)
 
     # Register agent in Azure AI Foundry portal
     async with (

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
+from azure.identity import DefaultAzureCredential
 
 # =============================================================================
 # Shared Models
@@ -152,8 +153,9 @@ class PartsOrder:
 class CosmosDbService:
     """Service for interacting with Cosmos DB."""
 
-    def __init__(self, endpoint: str, key: str, database_name: str):
-        self.client = CosmosClient(endpoint, key)
+    def __init__(self, endpoint: str, database_name: str):
+        self.credential = DefaultAzureCredential()
+        self.client = CosmosClient(endpoint, credential=self.credential)
         self.database = self.client.get_database_client(database_name)
 
     def _parse_datetime(self, dt_value):
