@@ -17,14 +17,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import List
 
-from agent_framework import Agent
-from agent_framework.foundry import FoundryChatClient
+from agent_framework.foundry import FoundryAgent
 from agent_framework.observability import create_resource, enable_instrumentation, get_tracer, configure_otel_providers
 from azure.monitor.opentelemetry import configure_azure_monitor
 from azure.ai.projects.aio import AIProjectClient
+from azure.identity import AzureCliCredential as SyncAzureCliCredential
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, get_tracer_provider
 from services.cosmos_db_service import (
     CosmosDbService,
     InventoryItem,
@@ -35,7 +35,7 @@ from services.cosmos_db_service import (
 )
 
 logger = logging.getLogger(__name__)
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 
 # =============================================================================
@@ -46,9 +46,16 @@ load_dotenv(override=True)
 class PartsOrderingAgent:
     """AI Agent for parts ordering"""
 
-    def __init__(self, project_endpoint: str, deployment_name: str, cosmos_service: CosmosDbService):
+    def __init__(
+        self,
+        project_endpoint: str,
+        deployment_name: str,
+        agent_version: str,
+        cosmos_service: CosmosDbService,
+    ):
         self.project_endpoint = project_endpoint
         self.deployment_name = deployment_name
+        self.agent_version = agent_version
         self.cosmos_service = cosmos_service
 
     @get_tracer().start_as_current_span("generate_order")
@@ -65,16 +72,6 @@ class PartsOrderingAgent:
         print(
             f"   Using persistent chat history for work order: {work_order.id}")
 
-        instructions = """You are a parts ordering specialist for industrial tire manufacturing equipment.
-
-Analyze inventory status and optimize parts ordering from suppliers considering:
-1. Current inventory levels vs reorder points
-2. Supplier reliability, lead time, and cost
-3. Previous order history
-4. Order urgency based on work order priority
-
-Always respond in valid JSON format as requested."""
-
         # Build context with chat history if available
         full_context = context
         if chat_history_json:
@@ -87,14 +84,14 @@ Always respond in valid JSON format as requested."""
             except Exception as e:
                 print(f"   Warning: Could not restore chat history: {e}")
 
-        agent = Agent(
-            client=FoundryChatClient(credential=AzureCliCredential(),
-                                     project_endpoint=self.project_endpoint,
-                                     model=self.deployment_name),
+        agent = FoundryAgent(
+            project_endpoint=self.project_endpoint,
+            agent_name="PartsOrderingAgent",
+            agent_version=self.agent_version,
+            credential=AzureCliCredential(),
             name="PartsOrderingAgent",
             description="Parts ordering agent for industrial tire manufacturing equipment",
-            instructions=instructions,
-            id="PartsOrderingAgent"
+            id="PartsOrderingAgent",
         )
 
         print(f"   ✅ Using agent: {agent.id}")
@@ -316,6 +313,8 @@ async def main():
     deployment_name = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4-mini")
     otel_exporter_endpoint = os.getenv(
         "OTEL_EXPORTER_OTLP_ENDPOINT")
+    os.environ.setdefault("OTEL_SERVICE_NAME", "PartsOrderingAgent")
+    os.environ.setdefault("AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING", "true")
 
     if not all([cosmos_endpoint, database_name, foundry_project_endpoint]):
         print("Error: Missing required environment variables.")
@@ -328,11 +327,14 @@ async def main():
         configure_azure_monitor(
             connection_string=os.getenv(
                 "APPLICATIONINSIGHTS_CONNECTION_STRING"),
+            credential=SyncAzureCliCredential(),
             resource=create_resource(),  # Uses OTEL_SERVICE_NAME, etc.
         )
-        enable_instrumentation(enable_sensitive_data=True)
+    enable_instrumentation(enable_sensitive_data=True)
 
     cosmos_service = CosmosDbService(cosmos_endpoint, database_name)
+    registered_agent_id = "PartsOrderingAgent"
+    registered_agent_version = ""
 
     # Register agent in Azure AI Foundry portal
     async with (
@@ -343,20 +345,24 @@ async def main():
             from azure.ai.projects.models import PromptAgentDefinition
 
             print("   Checking existing agent versions in portal...")
-            version_count = 0
-            try:
-                async for _ in project_client.agents.list_versions(agent_name="PartsOrderingAgent"):
-                    version_count += 1
-                print(f"   Found {version_count} existing versions")
-            except Exception as e:
-                print(f"   Error checking versions: {e}")
+            versions = [
+                version
+                async for version in project_client.agents.list_versions(
+                    agent_name="PartsOrderingAgent"
+                )
+            ]
+            print(f"   Found {len(versions)} existing versions")
 
-            print(
-                f"   Creating new version (will be version #{version_count + 1})...")
-
-            definition = PromptAgentDefinition(
-                model=deployment_name,
-                instructions="""You are a Parts Ordering Specialist for industrial tire manufacturing equipment.
+            if versions:
+                registered_agent = max(
+                    versions,
+                    key=lambda version: int(version.id.rsplit(":", 1)[-1]),
+                )
+                print(f"   Reusing latest version: {registered_agent.id}")
+            else:
+                definition = PromptAgentDefinition(
+                    model=deployment_name,
+                    instructions="""You are a Parts Ordering Specialist for industrial tire manufacturing equipment.
 
 Analyze inventory levels and optimize parts ordering from suppliers considering:
 1. Current inventory levels vs reorder points
@@ -371,28 +377,25 @@ When generating orders:
 - Reference inventory data to determine quantities
 
 Always respond in valid JSON format with: supplierId, supplierName, orderItems (partNumber, partName, quantity, unitCost, totalCost), totalCost, expectedDeliveryDate, and reasoning.""",
-            )
+                )
 
-            print("   Registering PartsOrderingAgent in Azure AI Foundry portal...")
-            registered_agent = await project_client.agents.create_version(
-                agent_name="PartsOrderingAgent",
-                definition=definition,
-                description="Parts ordering automation agent",
-                metadata={
-                    "framework": "agent-framework",
-                    "purpose": "parts_ordering",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                },
-            )
-            print("   ✅ New version created!")
-            print(
-                f"      Agent ID: {registered_agent.id if hasattr(registered_agent, 'id') else 'N/A'}")
+                print("   Registering PartsOrderingAgent in Azure AI Foundry portal...")
+                registered_agent = await project_client.agents.create_version(
+                    agent_name="PartsOrderingAgent",
+                    definition=definition,
+                    description="Parts ordering automation agent",
+                    metadata={
+                        "framework": "agent-framework",
+                        "purpose": "parts_ordering",
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    },
+                )
+                print("   ✅ New version created!")
 
-            print("   Verifying creation...")
-            verify_count = 0
-            async for _ in project_client.agents.list_versions(agent_name="PartsOrderingAgent"):
-                verify_count += 1
-            print(f"   Total versions now in portal: {verify_count}")
+            registered_agent_id = getattr(
+                registered_agent, "id", registered_agent_id)
+            registered_agent_version = registered_agent_id.rsplit(":", 1)[-1]
+            print(f"      Agent ID: {registered_agent_id}")
             print("   Check portal at: https://ai.azure.com\n")
         except Exception as e:
             print(f"   ⚠️  Could not register agent in portal: {e}\n")
@@ -402,9 +405,18 @@ Always respond in valid JSON format with: supplierId, supplierName, orderItems (
             logger.warning(f"Could not register agent in portal: {e}")
 
     agent_service = PartsOrderingAgent(
-        foundry_project_endpoint, deployment_name, cosmos_service)
+        foundry_project_endpoint,
+        deployment_name,
+        registered_agent_version,
+        cosmos_service,
+    )
 
     with get_tracer().start_as_current_span("Scenario: Parts Ordering Agent", kind=SpanKind.CLIENT) as current_span:
+        current_span.set_attribute("gen_ai.operation.name", "invoke_agent")
+        current_span.set_attribute("gen_ai.agent.name", "PartsOrderingAgent")
+        current_span.set_attribute("gen_ai.agent.id", registered_agent_id)
+        current_span.set_attribute("gen_ai.provider.name", "microsoft.foundry")
+        current_span.set_attribute("gen_ai.request.model", deployment_name)
 
         print("1. Retrieving work order...")
         work_order_id = sys.argv[1] if len(sys.argv) > 1 else "2024-468"
@@ -490,3 +502,4 @@ Always respond in valid JSON format with: supplierId, supplierName, orderItems (
 
 if __name__ == "__main__":
     asyncio.run(main())
+    get_tracer_provider().force_flush(timeout_millis=30000)
