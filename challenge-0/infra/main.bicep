@@ -22,6 +22,9 @@ param seedRepositoryUrl string = 'https://github.com/perktime/agentic-factory-ha
 @description('Git branch or tag cloned by the manual seed job.')
 param seedRepositoryRef string = 'main'
 
+@description('Optional suffix used to recreate a failed Foundry account with a fresh name.')
+param foundryNameSuffix string = ''
+
 resource workshopResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = {
   name: resourceGroupName
   location: location
@@ -35,6 +38,7 @@ module infrastructure './azuredeploy.bicep' = {
     searchServiceSku: searchServiceSku
     seedRepositoryUrl: seedRepositoryUrl
     seedRepositoryRef: seedRepositoryRef
+    foundryNameSuffix: foundryNameSuffix
   }
 }
 

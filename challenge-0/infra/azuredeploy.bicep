@@ -20,6 +20,9 @@ param seedRepositoryUrl string = 'https://github.com/perktime/agentic-factory-ha
 @description('Git branch or tag cloned by the manual seed job.')
 param seedRepositoryRef string = 'main'
 
+@description('Optional suffix used to recreate a failed Foundry account with a fresh name.')
+param foundryNameSuffix string = ''
+
 var prefix = 'msagthack'
 var suffix = uniqueString(resourceGroup().id, deployment().name)
 var virtualNetworkName = '${prefix}-vnet-${suffix}'
@@ -27,7 +30,7 @@ var storageAccountName = replace('${prefix}-sa-${suffix}', '-', '')
 var logAnalyticsWorkspaceName = '${prefix}-loganalytics-${suffix}'
 var searchServiceName = '${prefix}-search-${suffix}'
 var containerRegistryName = replace('${prefix}cr${suffix}', '-', '')
-var aiFoundryName = '${prefix}-aifoundry-${suffix}'
+var aiFoundryName = '${prefix}-aifoundry-${suffix}${empty(foundryNameSuffix) ? '' : '-${foundryNameSuffix}'}'
 var aiProjectName = '${prefix}-aiproject-${suffix}'
 var applicationInsightsName = '${prefix}-appinsights-${suffix}'
 var cosmosDbAccountName = '${prefix}-cosmos-${suffix}'

@@ -19,7 +19,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing 
   name: storageAccountName
 }
 
-resource apiManagement 'Microsoft.ApiManagement/service@2023-03-01-preview' existing = {
+resource apiManagement 'Microsoft.ApiManagement/service@2024-05-01' existing = {
   name: apiManagementName
 }
 

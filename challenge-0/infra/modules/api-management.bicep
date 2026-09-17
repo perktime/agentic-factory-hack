@@ -3,7 +3,7 @@ param location string
 param subnetId string
 param searchServiceName string
 
-resource apiManagement 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
+resource apiManagement 'Microsoft.ApiManagement/service@2024-05-01' = {
   name: name
   location: location
   identity: {
@@ -23,7 +23,7 @@ resource apiManagement 'Microsoft.ApiManagement/service@2023-03-01-preview' = {
   }
 }
 
-resource machineWikiMcpApi 'Microsoft.ApiManagement/service/apis@2023-03-01-preview' = {
+resource machineWikiMcpApi 'Microsoft.ApiManagement/service/apis@2024-05-01' = {
   parent: apiManagement
   name: 'machine-wiki-mcp'
   properties: {
@@ -37,7 +37,7 @@ resource machineWikiMcpApi 'Microsoft.ApiManagement/service/apis@2023-03-01-prev
   }
 }
 
-resource machineWikiMcpOperation 'Microsoft.ApiManagement/service/apis/operations@2023-03-01-preview' = {
+resource machineWikiMcpOperation 'Microsoft.ApiManagement/service/apis/operations@2024-05-01' = {
   parent: machineWikiMcpApi
   name: 'mcp-post'
   properties: {

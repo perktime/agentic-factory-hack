@@ -406,7 +406,7 @@
           "resources": [
             {
               "type": "Microsoft.ApiManagement/service",
-              "apiVersion": "2023-03-01-preview",
+              "apiVersion": "2024-05-01",
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
               "identity": {
@@ -427,7 +427,7 @@
             },
             {
               "type": "Microsoft.ApiManagement/service/apis",
-              "apiVersion": "2023-03-01-preview",
+              "apiVersion": "2024-05-01",
               "name": "[format('{0}/{1}', parameters('name'), 'machine-wiki-mcp')]",
               "properties": {
                 "displayName": "Machine Wiki MCP",
@@ -444,7 +444,7 @@
             },
             {
               "type": "Microsoft.ApiManagement/service/apis/operations",
-              "apiVersion": "2023-03-01-preview",
+              "apiVersion": "2024-05-01",
               "name": "[format('{0}/{1}/{2}', parameters('name'), 'machine-wiki-mcp', 'mcp-post')]",
               "properties": {
                 "displayName": "MCP POST",
@@ -463,7 +463,7 @@
             },
             "principalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('name')), '2023-03-01-preview', 'full').identity.principalId]"
+              "value": "[reference(resourceId('Microsoft.ApiManagement/service', parameters('name')), '2024-05-01', 'full').identity.principalId]"
             }
           }
         }
