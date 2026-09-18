@@ -303,6 +303,11 @@ To perform certain tasks in the hackathon, you need the following permissions:
 > Depending on the setup for the hackathon, the Azure roles might already have been assigned to you in advance, and you can then skip this step.
 > Check with your hackathon coach what is applicable for you.
 
+The Bicep deployment automatically assigns its deployment identity the `Foundry User`
+and `Cognitive Services OpenAI User` roles on the AI Services account. This keeps
+agent and model invocation access in place when the Foundry account is recreated.
+Use the manual commands below for a different user or for the additional permissions.
+
 <details>
 <summary>Assign permissions</summary>
 

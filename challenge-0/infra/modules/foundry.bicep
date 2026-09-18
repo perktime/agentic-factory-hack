@@ -11,6 +11,9 @@ param logAnalyticsReaderRoleId string
 param searchServiceName string
 param searchServicePrincipalId string
 param cognitiveServicesUserRoleId string
+param deploymentPrincipalId string
+param foundryUserRoleId string
+param cognitiveServicesOpenAIUserRoleId string
 param searchServiceContributorRoleId string
 param searchIndexDataReaderRoleId string
 
@@ -147,6 +150,24 @@ resource searchCognitiveServicesUser 'Microsoft.Authorization/roleAssignments@20
     roleDefinitionId: cognitiveServicesUserRoleId
     principalId: searchServicePrincipalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+resource deploymentPrincipalFoundryUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: aiFoundry
+  name: guid(aiFoundry.id, deploymentPrincipalId, foundryUserRoleId)
+  properties: {
+    roleDefinitionId: foundryUserRoleId
+    principalId: deploymentPrincipalId
+  }
+}
+
+resource deploymentPrincipalOpenAIUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: aiFoundry
+  name: guid(aiFoundry.id, deploymentPrincipalId, cognitiveServicesOpenAIUserRoleId)
+  properties: {
+    roleDefinitionId: cognitiveServicesOpenAIUserRoleId
+    principalId: deploymentPrincipalId
   }
 }
 

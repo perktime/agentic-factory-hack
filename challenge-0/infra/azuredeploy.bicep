@@ -44,6 +44,14 @@ var cognitiveServicesUserRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   'a97b65f3-24c7-4388-baec-2e87135dc908'
 )
+var foundryUserRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '53ca6127-db72-4b80-b1b0-d745d6d5456d'
+)
+var cognitiveServicesOpenAIUserRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+)
 var searchServiceContributorRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
@@ -175,6 +183,9 @@ module foundry 'modules/foundry.bicep' = {
     searchServiceName: aiSearch.outputs.name
     searchServicePrincipalId: aiSearch.outputs.principalId
     cognitiveServicesUserRoleId: cognitiveServicesUserRoleId
+    deploymentPrincipalId: deployer().objectId
+    foundryUserRoleId: foundryUserRoleId
+    cognitiveServicesOpenAIUserRoleId: cognitiveServicesOpenAIUserRoleId
     searchServiceContributorRoleId: searchServiceContributorRoleId
     searchIndexDataReaderRoleId: searchIndexDataReaderRoleId
   }
